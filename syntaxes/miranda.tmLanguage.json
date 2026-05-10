@@ -1,0 +1,147 @@
+{
+  "name": "Miranda",
+  "scopeName": "source.miranda",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#chars" },
+    { "include": "#keywords" },
+    { "include": "#preludeSymbols" },
+    { "include": "#typeNames" },
+    { "include": "#types" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#functions" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-bar.miranda",
+          "match": "\\|\\|.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.miranda",
+          "begin": "\"",
+          "end": "\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.miranda" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.miranda" }
+          },
+          "patterns": [
+            { "name": "constant.character.escape.miranda", "match": "\\\\." }
+          ]
+        }
+      ]
+    },
+    "chars": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.miranda",
+          "begin": "'",
+          "end": "'",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.miranda" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.miranda" }
+          },
+          "patterns": [
+            { "name": "constant.character.escape.miranda", "match": "\\\\." }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.miranda",
+          "match": "\\b(?:if|otherwise|where)\\b"
+        }
+      ]
+    },
+    "preludeSymbols": {
+      "patterns": [
+        {
+          "name": "support.function.miranda",
+          "match": "\\b(?:map|filter|foldr|foldl|hd|tl|take|drop|error|shownum|shownum1|showchar|showbool|showlist|showstring|showpair|showvoid|showfunction|showabstract|showwhat|showparen|rep|code|decode|digit|base|mkdigit|charname|div|mod|first|rest|diagonalise|diag|listdiff|remove|indent|outdent|changetype)\\b"
+        },
+        {
+          "name": "constant.language.boolean.miranda",
+          "match": "\\b(?:True|False)\\b"
+        }
+      ]
+    },
+    "typeNames": {
+      "patterns": [
+        {
+          "name": "entity.name.type.miranda",
+          "match": "\\b[A-Z][A-Za-z0-9_']*\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "keyword.other.type-declaration.miranda",
+          "match": "::"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.miranda",
+          "match": "\\b(?:0|[1-9]\\d*)(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.miranda",
+          "match": "->|\\+\\+|~=|<=|>=|:|=|\\b(?:div|mod)\\b|[+\\-*/<>]"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.miranda",
+          "match": "^[\\t ]*[a-z_][A-Za-z0-9_']*(?:\\s+[a-z_][A-Za-z0-9_']*)*(?=\\s*(?:::|=))"
+        },
+        {
+          "name": "support.variable.miranda",
+          "match": "\\b[a-z_][A-Za-z0-9_']*\\b"
+        },
+        {
+          "name": "entity.name.function.call.miranda",
+          "match": "\\b[a-z_][A-Za-z0-9_']*\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.list.begin.miranda",
+          "match": "\\[|\\]"
+        },
+        {
+          "name": "punctuation.section.group.begin.miranda",
+          "match": "\\(|\\)"
+        },
+        {
+          "name": "punctuation.section.tuple.begin.miranda",
+          "match": "\\{|\\}"
+        }
+      ]
+    }
+  }
+}

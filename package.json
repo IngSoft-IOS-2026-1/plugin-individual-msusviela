@@ -1,0 +1,78 @@
+{
+  "name": "miranda-static-helper",
+  "displayName": "Miranda Static Helper",
+  "description": "Basic language support and lightweight static analysis for Miranda in VS Code.",
+  "version": "0.0.1",
+  "publisher": "facultad",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "activationEvents": [
+    "onLanguage:miranda",
+    "onCommand:mirandaStaticHelper.analyzeCurrentFile"
+  ],
+  "files": [
+    "out/**",
+    "syntaxes/**",
+    "language-configuration.json",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "miranda",
+        "aliases": [
+          "Miranda",
+          "miranda"
+        ],
+        "extensions": [
+          ".m"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "miranda",
+        "scopeName": "source.miranda",
+        "path": "./syntaxes/miranda.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "mirandaStaticHelper.analyzeCurrentFile",
+        "title": "Miranda: Analyze Current File"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "package:vsix": "vsce package --no-dependencies --allow-missing-repository",
+    "pretest": "npm run compile",
+    "test": "node out/test/run-tests.js",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.86.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/parser": "^8.59.2",
+    "eslint": "^10.3.0",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "@vscode/vsce": "^3.9.1",
+    "vscode": "^1.1.37"
+  }
+}
