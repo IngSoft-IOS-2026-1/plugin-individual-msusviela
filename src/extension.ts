@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { analyzeDocument } from "./analyzer/analyzeDocument";
+import { analyzeDocument } from "./analyzer";
+import { MirandaCodeActionProvider } from "./providers/codeActionProvider";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("miranda");
@@ -51,6 +52,35 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.showInformationMessage(
           `Miranda analysis completed: ${currentDiagnostics.length} diagnostic(s) found.`,
         );
+      },
+    ),
+    // register code action provider
+    vscode.languages.registerCodeActionsProvider(
+      { language: "miranda" },
+      new MirandaCodeActionProvider(),
+    ),
+    vscode.commands.registerCommand(
+      "mirandaStaticHelper.insertPlaceholderRHS",
+      async (uri: vscode.Uri, range: vscode.Range) => {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(doc);
+        await editor.edit((editBuilder) => {
+          editBuilder.insert(range.end, " <placeholder>");
+        });
+      },
+    ),
+    vscode.commands.registerCommand(
+      "mirandaStaticHelper.renameSymbol",
+      async (uri: vscode.Uri, range: vscode.Range) => {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(doc);
+        const newName = await vscode.window.showInputBox({
+          prompt: "New name for symbol",
+        });
+        if (!newName) return;
+        await editor.edit((editBuilder) => {
+          editBuilder.replace(range, newName);
+        });
       },
     ),
   );

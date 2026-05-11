@@ -1,5 +1,5 @@
-import { AnalysisIssue } from "./analysisTypes";
-import { createMirandaScanState, maskMirandaLine } from "./scanner";
+import type { AnalysisIssue } from "../types";
+import { createMirandaScanState, maskMirandaLine } from "../scanner";
 
 function leadingWhitespace(line: string): string {
   const match = line.match(/^[\t ]*/);
@@ -11,12 +11,13 @@ function makeWarning(
   character: number,
   message: string,
   code: string,
+  endCharacter: number,
 ): AnalysisIssue {
   return {
     startLine: line,
     startCharacter: character,
     endLine: line,
-    endCharacter: character + 1,
+    endCharacter,
     message,
     severity: "warning",
     code,
@@ -28,6 +29,7 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
   const state = createMirandaScanState();
   let whereIndent: number | null = null;
   let previousSignificantIndent: number | null = null;
+  let awaitingWhereBody = false;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const rawLine = lines[lineIndex];
@@ -52,6 +54,7 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
           0,
           "Indentation mixes spaces and tabs.",
           "miranda.indentation.mixedWhitespace",
+          rawLine.length,
         ),
       );
     }
@@ -59,19 +62,29 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
     if (/\bwhere\b/.test(maskedLine)) {
       whereIndent = indent;
       previousSignificantIndent = indent;
+      awaitingWhereBody = true;
       continue;
     }
 
     if (whereIndent !== null) {
       if (indent <= whereIndent) {
-        issues.push(
-          makeWarning(
-            lineIndex,
-            Math.min(indent, rawLine.length),
-            "Line inside a where block should be indented more than the where line.",
-            "miranda.indentation.where",
-          ),
-        );
+        if (awaitingWhereBody) {
+          issues.push(
+            makeWarning(
+              lineIndex,
+              Math.min(indent, rawLine.length),
+              "Line inside a where block should be indented more than the where line.",
+              "miranda.indentation.where",
+              rawLine.length,
+            ),
+          );
+        }
+
+        // where block ends when indentation returns to the where level (or less)
+        whereIndent = null;
+        previousSignificantIndent = null;
+        awaitingWhereBody = false;
+        continue;
       }
 
       if (
@@ -84,11 +97,13 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
             Math.min(indent, rawLine.length),
             "Indentation decreases inside a where block.",
             "miranda.indentation.decrease",
+            rawLine.length,
           ),
         );
       }
 
       previousSignificantIndent = indent;
+      awaitingWhereBody = false;
     }
   }
 

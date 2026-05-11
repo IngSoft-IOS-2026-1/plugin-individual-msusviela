@@ -114,8 +114,8 @@
     "functions": {
       "patterns": [
         {
-          "name": "entity.name.function.miranda",
-          "match": "^[\\t ]*[a-z_][A-Za-z0-9_']*(?:\\s+[a-z_][A-Za-z0-9_']*)*(?=\\s*(?:::|=))"
+          "name": "meta.definition.line.miranda",
+          "match": "^[\\t ]*[a-z_][A-Za-z0-9_']*(?:\\s+[a-z_][A-Za-z0-9_']*)*\\s*(?:::|=).*"
         },
         {
           "name": "support.variable.miranda",

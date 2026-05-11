@@ -5,10 +5,12 @@ import type {
   Range,
   TextDocument,
 } from "vscode";
-import { analyzeDefinitions } from "./definitionAnalyzer";
-import { analyzeIndentation } from "./indentationAnalyzer";
-import { validateBrackets } from "./bracketValidator";
-import { AnalysisIssue } from "./analysisTypes";
+import { analyzeDefinitions } from "./heuristics";
+import { analyzeIndentation } from "./validators";
+import { validateBrackets } from "./validators";
+import type { AnalysisIssue } from "./types";
+import { analyzeComplexity } from "./heuristics";
+import { analyzeStyle } from "./heuristics";
 
 function issueSeverityToDiagnosticSeverity(
   severity: AnalysisIssue["severity"],
@@ -57,6 +59,8 @@ export function analyzeDocument(document: TextDocument): Diagnostic[] {
     ...validateBrackets(lines),
     ...analyzeDefinitions(lines),
     ...analyzeIndentation(lines),
+    ...analyzeStyle(lines),
+    ...analyzeComplexity(lines),
   ];
 
   return issues.map(issueToDiagnostic);

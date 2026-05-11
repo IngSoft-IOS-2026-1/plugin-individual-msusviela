@@ -1,5 +1,5 @@
-import { AnalysisIssue } from "./analysisTypes";
-import { createMirandaScanState, maskMirandaLine } from "./scanner";
+import type { AnalysisIssue } from "../types";
+import { createMirandaScanState, maskMirandaLine } from "../scanner";
 
 interface BracketEntry {
   readonly bracket: "(" | "[" | "{";

@@ -8,10 +8,7 @@
   "engines": {
     "vscode": "^1.86.0"
   },
-  "activationEvents": [
-    "onLanguage:miranda",
-    "onCommand:mirandaStaticHelper.analyzeCurrentFile"
-  ],
+  "activationEvents": [],
   "files": [
     "out/**",
     "syntaxes/**",

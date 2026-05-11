@@ -3,16 +3,14 @@ module.exports = {
   testEnvironment: "node",
   globals: {
     "ts-jest": {
-      tsconfig: {
-        isolatedModules: true,
-      },
+      tsconfig: "tsconfig.test.json",
       diagnostics: {
         ignoreCodes: [151002],
       },
     },
   },
   roots: ["<rootDir>/src"],
-  testMatch: ["**/__tests__/**/*.ts", "**/?(*.)+(spec|test).ts"],
+  testMatch: ["**/test/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
   collectCoverageFrom: [
     "src/**/*.ts",
     "!src/**/*.d.ts",

@@ -337,7 +337,7 @@ False
 
 These symbols are treated as predefined and should not be reported as undefined.
 
-## Suggested Project Structure
+## Project Structure
 
 ```txt
 miranda-static-helper/
@@ -357,8 +357,13 @@ miranda-static-helper/
 │   │   └── preludeSymbols.ts
 │   └── test/
 │       └── sample.m
-└── out/
+└── 
 ```
+
+Where: 
+
+
+- 
 
 ## Architecture
 
@@ -613,3 +618,5 @@ The value of the project lies in:
 - designing editor feedback for a functional language;
 - implementing a modular VSCode extension;
 - evaluating the limits of heuristic static analysis.
+
+* AI usage disclaimer: GitHub Copilot was used as a tool for code and test generation.

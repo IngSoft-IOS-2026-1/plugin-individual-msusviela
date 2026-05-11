@@ -1,10 +1,10 @@
-import { AnalysisIssue } from "./analysisTypes";
-import preludeSymbols from "./preludeSymbols";
+import type { AnalysisIssue } from "../types";
+import preludeSymbols from "../preludeSymbols";
 import {
   isIdentifier,
   maskMirandaDocument,
   tokenizeVisibleText,
-} from "./scanner";
+} from "../scanner";
 
 interface DefinitionRecord {
   readonly name: string;
@@ -46,6 +46,25 @@ const knownValueArities = new Map<string, number>([
   ["shownum1", 1],
   ["rep", 2],
   ["code", 1],
+  ["head", 1],
+  ["tail", 1],
+  ["null", 1],
+  ["not", 1],
+  ["and", 2],
+  ["or", 2],
+  ["+", 2],
+  ["-", 2],
+  ["*", 2],
+  ["/", 2],
+  ["++", 2],
+  [":", 2],
+  ["length", 1],
+  ["sum", 1],
+  ["product", 1],
+  ["zip", 2],
+  ["unzip", 1],
+  ["concat", 1],
+  ["append", 2],
   ["decode", 1],
   ["digit", 1],
   ["base", 2],
@@ -137,8 +156,43 @@ function makeIssue(
   };
 }
 
+function makeLineIssue(
+  line: number,
+  message: string,
+  severity: AnalysisIssue["severity"],
+  code: string,
+  lineLength: number,
+): AnalysisIssue {
+  return makeIssue(line, 0, message, severity, code, Math.max(1, lineLength));
+}
+
 function recordUsage(usageMap: Map<string, number>, name: string): void {
   usageMap.set(name, (usageMap.get(name) ?? 0) + 1);
+}
+
+function indentationWidth(line: string): number {
+  const match = line.match(/^[\t ]*/);
+  const indent = match ? match[0] : "";
+  return indent.replace(/\t/g, "    ").length;
+}
+
+function hasIndentedContinuation(
+  lines: readonly string[],
+  maskedLines: readonly string[],
+  lineIndex: number,
+): boolean {
+  const baseIndent = indentationWidth(lines[lineIndex] ?? "");
+
+  for (let index = lineIndex + 1; index < lines.length; index += 1) {
+    const trimmed = (maskedLines[index] ?? "").trim();
+    if (!trimmed || trimmed.startsWith("||")) {
+      continue;
+    }
+
+    return indentationWidth(lines[index] ?? "") > baseIndent;
+  }
+
+  return false;
 }
 
 function shouldConsiderAsSymbol(name: string): boolean {
@@ -183,8 +237,9 @@ function extractUsagesFromLine(line: string): TokenUsage[] {
 function analyzeSimpleCallExpression(
   line: string,
   lineIndex: number,
-  baseCharacter: number,
+  _baseCharacter: number,
   issues: AnalysisIssue[],
+  lineLength: number,
 ): void {
   const tokens = tokenizeVisibleText(line);
   if (tokens.length === 0) {
@@ -209,32 +264,58 @@ function analyzeSimpleCallExpression(
     return;
   }
 
+  const infixBoundaryTokens = new Set([
+    "=",
+    "::",
+    "where",
+    "if",
+    "otherwise",
+    "->",
+    "++",
+    ":",
+    "+",
+    "-",
+    "*",
+    "/",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "~=",
+  ]);
+
+  const isOpenBracket = (value: string): boolean =>
+    value === "(" || value === "[" || value === "{";
+  const isCloseBracket = (value: string): boolean =>
+    value === ")" || value === "]" || value === "}";
+
   let argumentCount = 0;
-  for (
-    let tokenIndex = firstTokenIndex + 1;
-    tokenIndex < tokens.length;
-    tokenIndex += 1
-  ) {
+  let tokenIndex = firstTokenIndex + 1;
+  while (tokenIndex < tokens.length) {
     const token = tokens[tokenIndex];
 
-    if (
-      token.value === "=" ||
-      token.value === "::" ||
-      token.value === "where" ||
-      token.value === "if" ||
-      token.value === "otherwise"
-    ) {
+    if (infixBoundaryTokens.has(token.value)) {
       break;
     }
 
-    if (
-      token.value === "(" ||
-      token.value === ")" ||
-      token.value === "[" ||
-      token.value === "]" ||
-      token.value === "{" ||
-      token.value === "}"
-    ) {
+    if (isCloseBracket(token.value)) {
+      tokenIndex += 1;
+      continue;
+    }
+
+    if (isOpenBracket(token.value)) {
+      argumentCount += 1;
+      let depth = 1;
+      tokenIndex += 1;
+      while (tokenIndex < tokens.length && depth > 0) {
+        const nested = tokens[tokenIndex];
+        if (isOpenBracket(nested.value)) {
+          depth += 1;
+        } else if (isCloseBracket(nested.value)) {
+          depth -= 1;
+        }
+        tokenIndex += 1;
+      }
       continue;
     }
 
@@ -243,17 +324,21 @@ function analyzeSimpleCallExpression(
       /^\d/.test(token.value)
     ) {
       argumentCount += 1;
+      tokenIndex += 1;
+      continue;
     }
+
+    tokenIndex += 1;
   }
 
   if (argumentCount > 0 && argumentCount !== callArity) {
     issues.push(
-      makeIssue(
+      makeLineIssue(
         lineIndex,
-        baseCharacter + tokens[firstTokenIndex].start,
         `Call to '${callee}' looks like it has ${argumentCount} argument(s), but the known arity is ${callArity}.`,
         "warning",
         "miranda.definition.callArity",
+        lineLength,
       ),
     );
   }
@@ -301,15 +386,16 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
         if (
           maskedLine
             .slice(candidate.operatorIndex + candidate.operatorLength)
-            .trim().length === 0
+            .trim().length === 0 &&
+          !hasIndentedContinuation(lines, maskedLines, lineIndex)
         ) {
           issues.push(
-            makeIssue(
+            makeLineIssue(
               lineIndex,
-              candidate.operatorIndex,
               `Definition '${definitionName}' is incomplete. Add an expression after '='.`,
               "warning",
               "miranda.definition.incomplete",
+              maskedLine.length,
             ),
           );
         }
@@ -317,12 +403,12 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
         const seenDefinitions = definitions.get(definitionName) ?? [];
         if (seenDefinitions.some((definition) => definition.kind === "value")) {
           issues.push(
-            makeIssue(
+            makeLineIssue(
               lineIndex,
-              maskedLine.indexOf(definitionName),
-              `Function '${definitionName}' is defined more than once.`,
-              "error",
+              `Function '${definitionName}' is defined more than once (multiple clauses).`,
+              "warning",
               "miranda.definition.duplicate",
+              maskedLine.length,
             ),
           );
         }
@@ -371,11 +457,36 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
           recordUsage(usageCounts, token.value);
         }
 
+        if (preludeSymbols.has(definitionName)) {
+          issues.push(
+            makeLineIssue(
+              lineIndex,
+              `Definition '${definitionName}' shadows a Miranda prelude symbol. Consider renaming to avoid confusion.`,
+              "warning",
+              "miranda.definition.redefinesPrelude",
+              maskedLine.length,
+            ),
+          );
+        }
+
+        if (keywords.has(definitionName)) {
+          issues.push(
+            makeLineIssue(
+              lineIndex,
+              `Identifier '${definitionName}' conflicts with Miranda keywords. Choose a different name.`,
+              "error",
+              "miranda.definition.keywordCollision",
+              maskedLine.length,
+            ),
+          );
+        }
+
         analyzeSimpleCallExpression(
           maskedLine.slice(candidate.operatorIndex + candidate.operatorLength),
           lineIndex,
           candidate.operatorIndex + candidate.operatorLength,
           issues,
+          maskedLine.length,
         );
 
         continue;
@@ -388,12 +499,12 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
             .trim().length === 0
         ) {
           issues.push(
-            makeIssue(
+            makeLineIssue(
               lineIndex,
-              candidate.operatorIndex,
               `Type declaration '${definitionName}' is incomplete. Add a type expression after '::'.`,
               "warning",
               "miranda.type.incomplete",
+              maskedLine.length,
             ),
           );
         }
@@ -455,12 +566,33 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
       const firstRecord = records.find((record) => record.kind === "value");
       if (firstRecord) {
         issues.push(
-          makeIssue(
+          makeLineIssue(
             firstRecord.line,
-            firstRecord.character,
             `Definition '${name}' is never used.`,
             "warning",
             "miranda.definition.unused",
+            maskedLines[firstRecord.line]?.length ?? 1,
+          ),
+        );
+      }
+    }
+
+    const valueRecords = records.filter((r) => r.kind === "value");
+    if (valueRecords.length > 1) {
+      const hasOtherwise = valueRecords.some((r) => {
+        const text = maskedLines[r.line] ?? "";
+        return /otherwise\b/.test(text) || /\|/.test(text);
+      });
+
+      if (!hasOtherwise) {
+        const first = valueRecords[0];
+        issues.push(
+          makeLineIssue(
+            first.line,
+            `Function '${name}' has multiple clauses but no 'otherwise' or catch-all branch; patterns may be non-exhaustive.`,
+            "warning",
+            "miranda.definition.guardNotExhaustive",
+            maskedLines[first.line]?.length ?? 1,
           ),
         );
       }
