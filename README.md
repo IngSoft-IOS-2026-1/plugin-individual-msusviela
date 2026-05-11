@@ -196,3 +196,26 @@ npm run package:vsix
 ## AI Usage
 
 GitHub Copilot was used as an assistant for implementation and test iteration.
+
+## Rules Configuration (like ESLint)
+
+You can control which diagnostics are shown and their displayed severity using a `rules` map in your VS Code settings (workspace or user settings). The behavior aims to be similar to ESLint: set a rule to `"off"` to disable it, `"warn"` to show as a warning, or `"error"` to show as an error. By default (no `rules` configured) all diagnostics are shown with their analyzer-provided severity.
+
+Example `settings.json` (workspace `.vscode/settings.json`):
+
+```json
+{
+  "mirandaStaticHelper.rules": {
+    "miranda.definition.unused": "off",
+    "miranda.definition.incomplete": "error",
+    "miranda.style.parenthesesUsage": "warn"
+  }
+}
+```
+
+Notes:
+- Rule keys are the diagnostic codes listed in the "Diagnostics Reference" section above.
+- Values accepted: `"off"`, `"warn"` (or `"warning"`), `"error"`.
+- If a rule is not present in the map, the extension will use the analyzer's default severity for that issue.
+
+This configuration is read from the standard VS Code configuration API and supports per-user or per-workspace settings.

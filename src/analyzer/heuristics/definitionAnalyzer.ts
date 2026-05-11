@@ -382,7 +382,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const maskedLine = maskedLines[lineIndex];
-    const rawLine = lines[lineIndex] ?? "";
+    const _rawLine = lines[lineIndex] ?? "";
     const trimmed = maskedLine.trim();
 
     if (!trimmed || trimmed.startsWith("||")) {

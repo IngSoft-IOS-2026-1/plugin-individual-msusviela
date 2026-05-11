@@ -21,26 +21,8 @@ function makeIssue(
 export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
   const issues: AnalysisIssue[] = [];
 
-  const indentationWidth = (text: string): number => {
-    const match = text.match(/^[\t ]*/);
-    const indent = match ? match[0] : "";
-    return indent.replace(/\t/g, "    ").length;
-  };
-
-  const hasIndentedContinuation = (index: number): boolean => {
-    const baseIndent = indentationWidth(lines[index] ?? "");
-
-    for (let next = index + 1; next < lines.length; next += 1) {
-      const candidate = (lines[next] ?? "").trim();
-      if (!candidate || candidate.startsWith("||")) {
-        continue;
-      }
-
-      return indentationWidth(lines[next] ?? "") > baseIndent;
-    }
-
-    return false;
-  };
+  // Style analyzer focuses on spacing and simple patterns; continuation/
+  // indentation heuristics live in the definition analyzer.
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];

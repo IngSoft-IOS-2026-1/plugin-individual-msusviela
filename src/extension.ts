@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { analyzeDocument } from "./analyzer";
 import { MirandaCodeActionProvider } from "./providers/codeActionProvider";
+import { setWorkspaceAccessor } from "./analyzer/analyzeDocument";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("miranda");
@@ -19,6 +20,10 @@ export function activate(context: vscode.ExtensionContext): void {
       refreshDocument(document);
     }
   }
+
+  // Inject workspace accessor into analyzer so it can read settings without
+  // importing `vscode` at module load time (keeps tests/environment isolated).
+  setWorkspaceAccessor(() => vscode.workspace);
 
   context.subscriptions.push(
     diagnostics,
