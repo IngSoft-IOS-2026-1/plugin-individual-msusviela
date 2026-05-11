@@ -30,6 +30,7 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
   let whereIndent: number | null = null;
   let previousSignificantIndent: number | null = null;
   let awaitingWhereBody = false;
+  let whereRequiresStrictIndent = false;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const rawLine = lines[lineIndex];
@@ -63,11 +64,16 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
       whereIndent = indent;
       previousSignificantIndent = indent;
       awaitingWhereBody = true;
+      whereRequiresStrictIndent = trimmed !== "where";
       continue;
     }
 
     if (whereIndent !== null) {
-      if (indent <= whereIndent) {
+      const invalidWhereIndent = whereRequiresStrictIndent
+        ? indent <= whereIndent
+        : indent < whereIndent;
+
+      if (invalidWhereIndent) {
         if (awaitingWhereBody) {
           issues.push(
             makeWarning(
@@ -84,6 +90,7 @@ export function analyzeIndentation(lines: readonly string[]): AnalysisIssue[] {
         whereIndent = null;
         previousSignificantIndent = null;
         awaitingWhereBody = false;
+        whereRequiresStrictIndent = false;
         continue;
       }
 

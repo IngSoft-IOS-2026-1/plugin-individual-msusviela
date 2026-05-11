@@ -18,6 +18,7 @@ interface TokenUsage {
   readonly name: string;
   readonly line: number;
   readonly character: number;
+  readonly endCharacter: number;
 }
 
 const keywords = new Set(["if", "otherwise", "where"]);
@@ -76,7 +77,7 @@ const knownValueArities = new Map<string, number>([
   ["rest", 1],
   ["diagonalise", 1],
   ["diag", 2],
-  ["listdiff", 3],
+  ["listdiff", 2],
   ["remove", 2],
   ["indent", 2],
   ["outdent", 1],
@@ -195,6 +196,33 @@ function hasIndentedContinuation(
   return false;
 }
 
+function hasUnbalancedBrackets(text: string): boolean {
+  const stack: string[] = [];
+  const opens = new Set(["(", "[", "{"]);
+  const matchingOpen: Record<string, string> = {
+    ")": "(",
+    "]": "[",
+    "}": "{",
+  };
+
+  for (const char of text) {
+    if (opens.has(char)) {
+      stack.push(char);
+      continue;
+    }
+
+    if (char === ")" || char === "]" || char === "}") {
+      const expected = matchingOpen[char];
+      const last = stack.pop();
+      if (last !== expected) {
+        return true;
+      }
+    }
+  }
+
+  return stack.length > 0;
+}
+
 function shouldConsiderAsSymbol(name: string): boolean {
   if (!isIdentifier(name)) {
     return false;
@@ -227,6 +255,7 @@ function extractUsagesFromLine(line: string): TokenUsage[] {
         name: token.value,
         line: 0,
         character: token.start,
+        endCharacter: token.end,
       });
     }
   }
@@ -353,6 +382,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const maskedLine = maskedLines[lineIndex];
+    const rawLine = lines[lineIndex] ?? "";
     const trimmed = maskedLine.trim();
 
     if (!trimmed || trimmed.startsWith("||")) {
@@ -367,6 +397,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const maskedLine = maskedLines[lineIndex];
+    const rawLine = lines[lineIndex] ?? "";
     const trimmed = maskedLine.trim();
 
     if (!trimmed || trimmed.startsWith("||")) {
@@ -383,10 +414,15 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
       const args = candidate.kind === "value" ? lineParts.slice(1) : [];
 
       if (candidate.kind === "value") {
+        const rhsRawText = rawLine.slice(
+          candidate.operatorIndex + candidate.operatorLength,
+        );
+        const rhsMaskedText = maskedLine.slice(
+          candidate.operatorIndex + candidate.operatorLength,
+        );
+
         if (
-          maskedLine
-            .slice(candidate.operatorIndex + candidate.operatorLength)
-            .trim().length === 0 &&
+          rhsRawText.trim().length === 0 &&
           !hasIndentedContinuation(lines, maskedLines, lineIndex)
         ) {
           issues.push(
@@ -395,6 +431,22 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
               `Definition '${definitionName}' is incomplete. Add an expression after '='.`,
               "warning",
               "miranda.definition.incomplete",
+              maskedLine.length,
+            ),
+          );
+        }
+
+        if (
+          rhsRawText.trim().length > 0 &&
+          hasUnbalancedBrackets(rhsMaskedText) &&
+          !hasIndentedContinuation(lines, maskedLines, lineIndex)
+        ) {
+          issues.push(
+            makeLineIssue(
+              lineIndex,
+              `Definition '${definitionName}' appears to have unbalanced brackets in the right-hand side expression.`,
+              "error",
+              "miranda.definition.unbalancedRhs",
               maskedLine.length,
             ),
           );
@@ -450,6 +502,9 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
                 `Name '${token.value}' is used but not defined in the current document or prelude.`,
                 "warning",
                 "miranda.definition.undefined",
+                candidate.operatorIndex +
+                  candidate.operatorLength +
+                  token.end,
               ),
             );
           }
@@ -494,7 +549,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
 
       if (candidate.kind === "type") {
         if (
-          maskedLine
+          rawLine
             .slice(candidate.operatorIndex + candidate.operatorLength)
             .trim().length === 0
         ) {
@@ -546,6 +601,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
             `Name '${usage.name}' is used but not defined in the current document or prelude.`,
             "warning",
             "miranda.definition.undefined",
+            usage.endCharacter,
           ),
         );
       }
@@ -565,6 +621,17 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
     if (!usageCounts.has(name)) {
       const firstRecord = records.find((record) => record.kind === "value");
       if (firstRecord) {
+        const lineHasSyntaxIssue = issues.some(
+          (issue) =>
+            issue.startLine === firstRecord.line &&
+            (issue.code === "miranda.definition.incomplete" ||
+              issue.code === "miranda.definition.unbalancedRhs"),
+        );
+
+        if (lineHasSyntaxIssue) {
+          continue;
+        }
+
         issues.push(
           makeLineIssue(
             firstRecord.line,

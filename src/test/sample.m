@@ -1,13 +1,14 @@
-|| Miranda sample with richer syntax coverage and only a few intentional diagnostics.
+|| Miranda sample focused on realistic syntax + relevant linter scenarios.
+|| This file intentionally contains both valid and invalid snippets.
 
-|| Core definitions
+|| ---------- Core definitions ----------
 identity x = x
 compose f g x = f (g x)
 pair x y = (x, y)
 cons x xs = x : xs
 swap (x, y) = (y, x)
 
-|| Prelude-backed helpers
+|| ---------- Prelude-backed helpers ----------
 boolText b = showbool b
 pairText x y = showpair showchar showstring (x, y)
 listText xs = showlist shownum xs
@@ -20,7 +21,7 @@ whatText x = showwhat x
 voidText x = showvoid x
 numberText n = shownum1 n
 
-|| Prelude-heavy usage for highlight coverage
+|| ---------- Prelude-heavy usage ----------
 mapDemo xs = map showchar xs
 filterDemo xs = filter showbool xs
 takeDemo xs = take 3 xs
@@ -30,35 +31,36 @@ firstRestDemo tup = first tup ++ rest tup
 diagDemo xs = diagonalise xs ++ diag 1 xs
 indentDemo p q = indent p q
 outdentDemo p = outdent p
-listOps x xs ys = listdiff x xs ys
+listOps x xs = listdiff x xs
 removeDemo x xs = remove x xs
 baseDemo r x = base r x
 digitDemo c = digit c
 mkdigitDemo n = mkdigit n
 charnameDemo c = charname c
 
-|| Operators and comparison
-mathDemo a b = (a + b) ++ shownum (a div b) ++ shownum (a mod b)
+|| ---------- Operators and comparisons ----------
+mathDemo a b = shownum (a + b) ++ shownum (a div b) ++ shownum (a mod b)
 comparisonDemo a b = if a <= b otherwise a >= b
 booleanDemo b = if b otherwise False
 equalityDemo x y = x ~= y
 
-|| Lists, tuples, and characters
-tupleAndListDemo x y c = [(x, y), (y, x), (x, x)]
+|| ---------- Lists, tuples, and literals ----------
+tupleAndListDemo x y c = [(x, y), (y, x), (x, x), (x, c)]
 charListDemo = ['a', '\\n', 'z']
 stringDemo = "Miranda static helper"
 prettyList = showlist showchar ['m', 'i', 'r', 'a', 'n', 'd', 'a']
 
-|| Where indentation
-whereBad x = helperWhere x where
-helperWhere y = y + 1
+|| ---------- Valid where block ----------
+whereGood x = y
+  where
+  y = x + 1
 
-|| Showcase that uses the helpers above
+|| ---------- Main showcase (uses almost everything above) ----------
 demo =
 	boolText (booleanDemo True) ++
 	pairText 'a' "alpha" ++
 	listText [1, 2, 3] ++
-	stringText "hello" ++
+	stringText stringDemo ++
 	charText 'c' ++
 	parenText (identity 42) ++
 	functionText identity ++
@@ -72,19 +74,49 @@ demo =
 	showstring (showlist shownum (dropDemo [1, 2, 3, 4])) ++
 	showstring (showlist showchar (repDemo 'x')) ++
 	firstRestDemo (pair "first" "rest") ++
-	showstring (showlist showchar (diagDemo [[1], [2]])) ++
+	showstring (showlist showchar (diagDemo [[1], [2], [3]])) ++
 	showstring (showlist shownum (listOps [1, 2, 3] [2])) ++
 	showstring (showlist shownum (removeDemo 2 [1, 2, 3])) ++
-	showstring (showlist shownum (baseDemo 10 42)) ++
+	showstring (baseDemo 10 42) ++
 	showstring (showlist showbool [digitDemo '1', digitDemo 'a']) ++
 	showstring (showlist shownum [mkdigitDemo 1, mkdigitDemo 2]) ++
-	charnameDemo 'a'
+	charnameDemo 'a' ++
+	showstring (showlist showchar charListDemo) ++
+	showstring (showlist showpair shownum shownum (tupleAndListDemo 1 2 3)) ++
+	shownum (whereGood 10)
 
-|| Intentional diagnostics, kept small
+|| extra coverage to avoid noisy "unused" warnings in normal section
+coverageSink =
+	cons 'x' ['y', 'z'] ++
+	showpair shownum shownum (swap (10, 20)) ++
+	shownum (outdentDemo (indentDemo 1 2)) ++
+	mathDemo 12 5 ++
+	showbool (comparisonDemo 2 3) ++
+	showbool (equalityDemo 4 4)
+
+|| ---------- Intentional diagnostics (each with expected message) ----------
+
+|| EXPECT: Opening bracket '(' is not closed.
+|| EXPECT: Definition 'badParen' appears to have unbalanced brackets in the right-hand side expression.
 badParen x = (x + 1
+
+|| EXPECT: Function 'duplicate' is defined more than once (multiple clauses).
 duplicate a = a + 1
 duplicate a = a + 2
+duplicateUse = duplicate 10
+
+|| EXPECT: Name 'ghostValue' is used but not defined in the current document or prelude.
 ghostUse = ghostValue 7
+ghostUseSink = ghostUse
+
+|| EXPECT: Type declaration 'typedAgain' is duplicated.
 typedAgain :: Num -> Num
 typedAgain :: Num -> Num
+
+|| EXPECT: Definition 'incompleteFn' is incomplete. Add an expression after '='.
 incompleteFn x =
+
+|| EXPECT: Line inside a where block should be indented more than the where line.
+whereBad x = y
+  where
+y = x + 1

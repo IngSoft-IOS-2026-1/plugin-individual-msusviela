@@ -19,6 +19,18 @@ describe("Definition Analyzer", () => {
     expect(result.some((r) => r.message.includes("not defined"))).toBe(true);
   });
 
+  it("should underline full undefined symbol", () => {
+    const result = analyzeDefinitions(["f x = unknownFunc x"]);
+    const issue = result.find((r) => r.code === "miranda.definition.undefined");
+
+    expect(issue).toBeDefined();
+    if (issue) {
+      expect(issue.endCharacter - issue.startCharacter).toBe(
+        "unknownFunc".length,
+      );
+    }
+  });
+
   it("detects unused definitions", () => {
     const result = analyzeDefinitions(["f x = x + 1", "g y = y + 2"]);
     expect(result.some((r) => r.message.includes("never used"))).toBe(true);
@@ -27,6 +39,29 @@ describe("Definition Analyzer", () => {
   it("should detect incomplete definitions", () => {
     const result = analyzeDefinitions(["f x = "]);
     expect(result.some((r) => r.code === "miranda.definition.incomplete")).toBe(true);
+  });
+
+  it("should not flag string literal rhs as incomplete", () => {
+    const result = analyzeDefinitions([
+      "stringDemo = \"Miranda static helper\"",
+    ]);
+    expect(
+      result.some((r) => r.code === "miranda.definition.incomplete"),
+    ).toBe(false);
+  });
+
+  it("should detect unbalanced rhs brackets", () => {
+    const result = analyzeDefinitions(["badParen x = (x + 1"]);
+    expect(
+      result.some((r) => r.code === "miranda.definition.unbalancedRhs"),
+    ).toBe(true);
+  });
+
+  it("should not mark broken definitions as unused", () => {
+    const result = analyzeDefinitions(["badParen x = (x + 1"]);
+    expect(
+      result.some((r) => r.code === "miranda.definition.unused"),
+    ).toBe(false);
   });
 
   it("should allow multiline indented rhs definitions", () => {
@@ -75,6 +110,17 @@ describe("Definition Analyzer", () => {
         (r) =>
           r.code === "miranda.definition.callArity" &&
           r.message.includes("Call to 'diagonalise'"),
+      ),
+    ).toBe(false);
+  });
+
+  it("should not flag listdiff with two arguments", () => {
+    const result = analyzeDefinitions(["listOps x xs = listdiff x xs"]);
+    expect(
+      result.some(
+        (r) =>
+          r.code === "miranda.definition.callArity" &&
+          r.message.includes("Call to 'listdiff'"),
       ),
     ).toBe(false);
   });
@@ -129,6 +175,20 @@ describe("Style Analyzer", () => {
   it("should accept proper spacing around =", () => {
     const result = analyzeStyle(["f x = x + 1"]);
     expect(result.filter((r) => r.code === "miranda.style.equalsSpacing")).toHaveLength(0);
+  });
+
+  it("should allow multiline layout definitions", () => {
+    const result = analyzeStyle(["demo =", "  shownum 1"]);
+    expect(
+      result.some((r) => r.code === "miranda.style.equalsSpacing"),
+    ).toBe(false);
+  });
+
+  it("should not enforce equals spacing when rhs is empty", () => {
+    const result = analyzeStyle(["incompleteFn x ="]);
+    expect(
+      result.some((r) => r.code === "miranda.style.equalsSpacing"),
+    ).toBe(false);
   });
 
   it("warns about missing spaces around =", () => {

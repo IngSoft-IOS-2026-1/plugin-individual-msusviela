@@ -100,6 +100,15 @@ describe("Indentation Analyzer", () => {
     expect(result.filter((r) => r.code === "miranda.indentation.where")).toHaveLength(0);
   });
 
+  it("should accept standalone where with aligned local definition", () => {
+    const result = analyzeIndentation([
+      "f x = y",
+      "  where",
+      "  y = x + 1",
+    ]);
+    expect(result.filter((r) => r.code === "miranda.indentation.where")).toHaveLength(0);
+  });
+
   it("should detect indentation issues in continuation", () => {
     const result = analyzeIndentation(["f x = x", "  where", "y = 1"]);
     expect(result.some((r) => r.code === "miranda.indentation.where" || r.code === "miranda.indentation.decrease")).toBe(true);
