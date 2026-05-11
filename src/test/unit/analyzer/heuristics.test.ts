@@ -140,6 +140,25 @@ describe("Definition Analyzer", () => {
     expect(result.some((r) => r.code === "miranda.definition.guardNotExhaustive")).toBe(true);
   });
 
+  it("should not flag guard exhaustiveness for zero-arity local bindings", () => {
+    const result = analyzeDefinitions([
+      "whereGood x = y",
+      "  where",
+      "  y = x + 1",
+      "whereBad x = y",
+      "  where",
+      "  y = x + 2",
+    ]);
+
+    expect(
+      result.some(
+        (r) =>
+          r.code === "miranda.definition.guardNotExhaustive" &&
+          r.message.includes("Function 'y'"),
+      ),
+    ).toBe(false);
+  });
+
   it("should detect incomplete type declarations", () => {
     const result = analyzeDefinitions(["f :: "]);
     expect(result.some((r) => r.code === "miranda.type.incomplete")).toBe(true);

@@ -645,7 +645,8 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
     }
 
     const valueRecords = records.filter((r) => r.kind === "value");
-    if (valueRecords.length > 1) {
+    const canBeGuardedFunction = valueRecords.some((record) => record.arity > 0);
+    if (valueRecords.length > 1 && canBeGuardedFunction) {
       const hasOtherwise = valueRecords.some((r) => {
         const text = maskedLines[r.line] ?? "";
         return /otherwise\b/.test(text) || /\|/.test(text);
