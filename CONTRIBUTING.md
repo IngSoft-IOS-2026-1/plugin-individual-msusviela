@@ -146,6 +146,7 @@ npm run package:vsix
 
 ## Packaging Notes
 
+- Run `npm run compile` before `npm run package:vsix` to ensure the `out/` folder is up-to-date.
 - `npm run package:vsix` uses the repository metadata in `package.json`.
 - Keep `out/` clean before packaging so stale build output does not leak into the VSIX.
 - If you change files included in the extension bundle, make sure they are listed in the `files` section of `package.json`.
