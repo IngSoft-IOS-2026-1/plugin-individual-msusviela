@@ -3,7 +3,7 @@
   "displayName": "Miranda Static Helper",
   "description": "Basic language support and lightweight static analysis for Miranda in VS Code.",
   "version": "0.0.1",
-  "publisher": "facultad",
+  "publisher": "msusviela",
   "license": "MIT",
   "engines": {
     "vscode": "^1.86.0"
