@@ -4,6 +4,30 @@ Miranda Static Helper is a Visual Studio Code extension that provides language s
 
 The project focuses on fast editor feedback: diagnostics are heuristic (not a full parser/typechecker), but practical for day-to-day authoring.
 
+## Index
+- [What It Provides](#what-it-provides)
+- [Current Project Structure](#current-project-structure)
+- [Analyzer Architecture](#analyzer-architecture)
+- [Diagnostics Reference](#diagnostics-reference)
+  - [Brackets](#brackets)
+  - [Definitions and Types](#definitions-and-types)
+  - [Indentation](#indentation)
+  - [Style](#style)
+  - [Complexity](#complexity)
+- [Commands](#commands)
+- [Quick Fixes](#quick-fixes)
+- [Test Fixtures](#test-fixtures)
+- [Development](#development)
+  - [Tooling](#tooling)
+  - [Installing](#installing)
+  - [Packaging](#packaging)
+- [Notes and Scope](#notes-and-scope)
+- [References](#references)
+- [AI Usage](#ai-usage)
+- [Rules Configuration](#rules-configuration)
+- [Settings UI](#settings-ui)
+- [Test configuration file](#test-configuration-file)
+
 ## What It Provides
 
 - Miranda language registration (`miranda`) for `.m` files.
@@ -17,44 +41,35 @@ The project focuses on fast editor feedback: diagnostics are heuristic (not a fu
 
 ```txt
 .
+├── .mirandarc.json
+├── .gitignore
 ├── language-configuration.json
 ├── package.json
-├── README.md
-├── jest.config.js
 ├── tsconfig.json
-├── tsconfig.test.json
 ├── syntaxes/
 │   └── miranda.tmLanguage.json
 └── src/
     ├── extension.ts
     ├── analyzer/
-    │   ├── index.ts
-    │   ├── analyzeDocument.ts
-    │   ├── scanner.ts
-    │   ├── preludeSymbols.ts
     │   ├── types/
-    │   │   ├── AnalysisIssue.ts
-    │   │   └── index.ts
     │   ├── validators/
-    │   │   ├── bracketValidator.ts
-    │   │   ├── indentationAnalyzer.ts
-    │   │   └── index.ts
-    │   └── heuristics/
-    │       ├── definitionAnalyzer.ts
-    │       ├── styleAnalyzer.ts
-    │       ├── complexityAnalyzer.ts
-    │       └── index.ts
+    │   ├── heuristics/
+    │   └── config/
     ├── providers/
-    │   └── codeActionProvider.ts
     └── test/
-        ├── sample.m
-        ├── sample.smoke.m
-        └── unit/
-            └── analyzer/
-                ├── scanner.test.ts
-                ├── validators.test.ts
-                └── heuristics.test.ts
 ```
+
+### Directory Guide
+
+- **Root**: Configuration files (`.mirandarc.json` for rules, `.gitignore`, `package.json`, `tsconfig.json`).
+- **`syntaxes/`**: TextMate grammar for syntax highlighting (`.tmLanguage.json`).
+- **`src/analyzer/`**:
+  - `types/`: AnalysisIssue type definitions.
+  - `validators/`: Structural checks (brackets, indentation).
+  - `heuristics/`: Semantic and style analysis (definitions, style, complexity).
+  - `config/`: Workspace rules configuration loader.
+- **`src/providers/`**: VS Code API providers (CodeActionProvider for quick fixes).
+- **`src/test/`**: Test fixtures and unit tests.
 
 ## Analyzer Architecture
 
@@ -73,40 +88,40 @@ The project focuses on fast editor feedback: diagnostics are heuristic (not a fu
 
 ### Brackets
 
-- `miranda.brackets.unclosed`
-- `miranda.brackets.unmatchedClose`
-- `miranda.brackets.mismatch`
+- `miranda.brackets.unclosed`: Opening bracket without matching close (e.g., `[` without `]`).
+- `miranda.brackets.unmatchedClose`: Closing bracket without matching open.
+- `miranda.brackets.mismatch`: Mismatched bracket types (e.g., `[` closed with `)`).
 
 ### Definitions and Types
 
-- `miranda.definition.incomplete`
-- `miranda.definition.unbalancedRhs`
-- `miranda.definition.duplicate`
-- `miranda.definition.undefined`
-- `miranda.definition.unused`
-- `miranda.definition.redefinesPrelude`
-- `miranda.definition.keywordCollision`
-- `miranda.definition.guardNotExhaustive`
-- `miranda.definition.callArity`
-- `miranda.type.incomplete`
-- `miranda.type.duplicate`
+- `miranda.definition.incomplete`: Definition right-hand side (RHS) is missing or empty.
+- `miranda.definition.unbalancedRhs`: RHS contains mismatched brackets or incomplete expressions.
+- `miranda.definition.duplicate`: Function or type defined multiple times without a catch-all clause.
+- `miranda.definition.undefined`: Reference to a symbol not defined in the document or prelude.
+- `miranda.definition.unused`: Function or type defined but never used in the code.
+- `miranda.definition.redefinesPrelude`: Local symbol shadows a known Miranda prelude function.
+- `miranda.definition.keywordCollision`: Symbol name collides with a Miranda keyword.
+- `miranda.definition.guardNotExhaustive`: Multiple clauses exist but patterns may not cover all cases.
+- `miranda.definition.callArity`: Function called with incorrect number of arguments.
+- `miranda.type.incomplete`: Type definition right-hand side is missing or empty.
+- `miranda.type.duplicate`: Type defined multiple times in the same scope.
 
 ### Indentation
 
-- `miranda.indentation.mixedWhitespace`
-- `miranda.indentation.where`
-- `miranda.indentation.decrease`
+- `miranda.indentation.mixedWhitespace`: Line uses both tabs and spaces for indentation.
+- `miranda.indentation.where`: `where` block indentation does not match expected structure.
+- `miranda.indentation.decrease`: Unexpected decrease in indentation level between lines.
 
 ### Style
 
-- `miranda.style.equalsSpacing`
-- `miranda.style.commaSpacing`
-- `miranda.style.parenthesesUsage`
+- `miranda.style.equalsSpacing`: Missing or inconsistent whitespace around `=` in definitions.
+- `miranda.style.commaSpacing`: Missing or inconsistent whitespace around `,` in lists/tuples.
+- `miranda.style.parenthesesUsage`: Unnecessary or unbalanced use of parentheses.
 
 ### Complexity
 
-- `miranda.complexity.high`
-- `miranda.complexity.recursive`
+- `miranda.complexity.high`: Function body exceeds recommended complexity threshold.
+- `miranda.complexity.recursive`: Function is recursive; consider iterative approaches or tail-call optimization.
 
 ## Commands
 
@@ -133,6 +148,15 @@ Provided by `src/providers/codeActionProvider.ts`:
   - minimal fixture for smoke/regression checks (one focused block per rule).
 
 ## Development
+
+### Tooling
+
+- **Language**: TypeScript
+- **Build tool**: `npm` (scripts in `package.json`)
+- **Testing**: Jest
+- **Linting**: ESLint
+
+### Installing
 
 Install dependencies:
 
@@ -197,9 +221,9 @@ npm run package:vsix
 
 GitHub Copilot was used as an assistant for implementation and test iteration.
 
-## Rules Configuration (like ESLint)
+## Rules Configuration
 
-You can control which diagnostics are shown and their displayed severity using either a workspace config file or VS Code settings. The extension first looks for a root `.mirandarc.json` or `.mirandarc` file in the workspace, and falls back to `mirandaStaticHelper.rules` in settings if no file is present. The behavior is similar to ESLint: set a rule to `"off"` to disable it, `"warn"` to show as a warning, or `"error"` to show as an error.
+You can control which diagnostics are shown and their displayed severity using either a workspace config file or VS Code settings. The extension first looks for a root `.mirandarc.json` or `.mirandarc` file in the workspace, and falls back to `mirandaStaticHelper.rules` in settings if no file is present. Set a rule to `"off"` to disable it, `"warn"` to show as a warning, or `"error"` to show as an error.
 
 Example workspace file `.mirandarc.json`:
 
