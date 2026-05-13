@@ -5,6 +5,10 @@
   "version": "0.0.1",
   "publisher": "msusviela",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IngSoft-IOS-2026-1/plugin-individual-msusviela.git"
+  },
   "engines": {
     "vscode": "^1.86.0"
   },
@@ -63,7 +67,8 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p .",
+    "clean": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
+    "compile": "npm run clean && tsc -p .",
     "watch": "tsc -w -p .",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
