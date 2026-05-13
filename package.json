@@ -8,7 +8,6 @@
   "engines": {
     "vscode": "^1.86.0"
   },
-  "activationEvents": [],
   "files": [
     "out/**",
     "syntaxes/**",
@@ -47,7 +46,21 @@
         "command": "mirandaStaticHelper.analyzeCurrentFile",
         "title": "Miranda: Analyze Current File"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Miranda Static Helper",
+      "properties": {
+        "mirandaStaticHelper.rules": {
+          "type": "object",
+          "description": "Per-rule configuration. Keys are diagnostic codes and values are 'off', 'warn' (or 'warning'), or 'error'.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["off", "warn", "warning", "error"]
+          },
+          "default": {}
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p .",

@@ -1,10 +1,12 @@
 import * as vscode from "vscode";
 import { analyzeDocument } from "./analyzer";
 import { MirandaCodeActionProvider } from "./providers/codeActionProvider";
-import { setWorkspaceAccessor } from "./analyzer/analyzeDocument";
+import { readMirandaRulesFromWorkspace } from "./config/mirandaRulesConfig";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("miranda");
+
+  const getRules = (): Record<string, string> => readMirandaRulesFromWorkspace();
 
   const refreshDocument = (document: vscode.TextDocument): void => {
     if (document.languageId !== "miranda") {
@@ -12,18 +14,38 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
 
-    diagnostics.set(document.uri, analyzeDocument(document));
+    diagnostics.set(document.uri, analyzeDocument(document, getRules()));
   };
 
-  for (const document of vscode.workspace.textDocuments) {
-    if (document.languageId === "miranda") {
-      refreshDocument(document);
+  const refreshOpenMirandaDocuments = (): void => {
+    for (const document of vscode.workspace.textDocuments) {
+      if (document.languageId === "miranda") {
+        refreshDocument(document);
+      }
     }
-  }
+  };
 
-  // Inject workspace accessor into analyzer so it can read settings without
-  // importing `vscode` at module load time (keeps tests/environment isolated).
-  setWorkspaceAccessor(() => vscode.workspace);
+  refreshOpenMirandaDocuments();
+
+  const configWatchers = vscode.workspace.workspaceFolders
+    ? vscode.workspace.workspaceFolders.flatMap((folder) => [
+        vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(folder, ".mirandarc.json"),
+        ),
+        vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(folder, ".mirandarc"),
+        ),
+      ])
+    : [];
+
+  for (const watcher of configWatchers) {
+    context.subscriptions.push(
+      watcher,
+      watcher.onDidChange(refreshOpenMirandaDocuments),
+      watcher.onDidCreate(refreshOpenMirandaDocuments),
+      watcher.onDidDelete(refreshOpenMirandaDocuments),
+    );
+  }
 
   context.subscriptions.push(
     diagnostics,
@@ -32,6 +54,11 @@ export function activate(context: vscode.ExtensionContext): void {
       refreshDocument(event.document),
     ),
     vscode.workspace.onDidSaveTextDocument(refreshDocument),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("mirandaStaticHelper.rules")) {
+        refreshOpenMirandaDocuments();
+      }
+    }),
     vscode.workspace.onDidCloseTextDocument((document) =>
       diagnostics.delete(document.uri),
     ),
@@ -52,7 +79,7 @@ export function activate(context: vscode.ExtensionContext): void {
           return;
         }
 
-        const currentDiagnostics = analyzeDocument(document);
+        const currentDiagnostics = analyzeDocument(document, getRules());
         diagnostics.set(document.uri, currentDiagnostics);
         vscode.window.showInformationMessage(
           `Miranda analysis completed: ${currentDiagnostics.length} diagnostic(s) found.`,

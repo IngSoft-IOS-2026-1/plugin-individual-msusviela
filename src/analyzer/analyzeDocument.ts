@@ -5,18 +5,6 @@ import type {
   Range,
   TextDocument,
 } from "vscode";
-// Allow the extension host to inject a workspace accessor. Tests do not need to
-// provide one and will simply receive `undefined` (so diagnostics behave as
-// before). This avoids using `require()` at module scope which ESLint forbids.
-let workspaceAccessor: (() => unknown) | undefined;
-
-export function setWorkspaceAccessor(fn: () => unknown): void {
-  workspaceAccessor = fn;
-}
-
-function getWorkspace(): unknown {
-  return workspaceAccessor ? workspaceAccessor() : undefined;
-}
 import { analyzeDefinitions } from "./heuristics";
 import { analyzeIndentation } from "./validators";
 import { validateBrackets } from "./validators";
@@ -70,12 +58,10 @@ function mapRuleSeverityToDiagnosticSeverity(v: string): DiagnosticSeverity | "o
   return null;
 }
 
-function applyRules(issues: AnalysisIssue[]): Diagnostic[] {
-  const ws = getWorkspace();
-  const cfgGetter = (ws as { getConfiguration?: (section: string) => unknown })?.getConfiguration;
-  const cfg = cfgGetter ? cfgGetter("mirandaStaticHelper") : undefined;
-  const cfgGet = (cfg as { get?: (k: string) => unknown })?.get;
-  const rules = cfgGet ? ((cfgGet("rules") as Record<string, string>) || {}) : {};
+function applyRules(
+  issues: AnalysisIssue[],
+  rules: Record<string, string>,
+): Diagnostic[] {
 
   const diagnostics: Diagnostic[] = [];
   for (const issue of issues) {
@@ -99,7 +85,10 @@ function applyRules(issues: AnalysisIssue[]): Diagnostic[] {
   return diagnostics;
 }
 
-export function analyzeDocument(document: TextDocument): Diagnostic[] {
+export function analyzeDocument(
+  document: TextDocument,
+  rules: Record<string, string> = {},
+): Diagnostic[] {
   const lines: string[] = [];
   for (let index = 0; index < document.lineCount; index += 1) {
     lines.push(document.lineAt(index).text);
@@ -115,5 +104,5 @@ export function analyzeDocument(document: TextDocument): Diagnostic[] {
 
   // Apply user-configured rules (like ESLint): allow remapping to "error"/"warn" or disabling with "off".
   // If no rules configured, behavior is identical to the previous default (all issues shown with their analyzer severity).
-  return applyRules(issues);
+  return applyRules(issues, rules);
 }

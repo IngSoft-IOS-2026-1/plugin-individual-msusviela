@@ -199,15 +199,31 @@ GitHub Copilot was used as an assistant for implementation and test iteration.
 
 ## Rules Configuration (like ESLint)
 
-You can control which diagnostics are shown and their displayed severity using a `rules` map in your VS Code settings (workspace or user settings). The behavior aims to be similar to ESLint: set a rule to `"off"` to disable it, `"warn"` to show as a warning, or `"error"` to show as an error. By default (no `rules` configured) all diagnostics are shown with their analyzer-provided severity.
+You can control which diagnostics are shown and their displayed severity using either a workspace config file or VS Code settings. The extension first looks for a root `.mirandarc.json` or `.mirandarc` file in the workspace, and falls back to `mirandaStaticHelper.rules` in settings if no file is present. The behavior is similar to ESLint: set a rule to `"off"` to disable it, `"warn"` to show as a warning, or `"error"` to show as an error.
 
-Example `settings.json` (workspace `.vscode/settings.json`):
+Example workspace file `.mirandarc.json`:
+
+```json
+{
+  "miranda.definition.unused": "off",
+  "miranda.definition.incomplete": "error",
+  "miranda.definition.duplicate": "error",
+  "miranda.type.duplicate": "error",
+  "miranda.definition.guardNotExhaustive": "error",
+  "miranda.style.parenthesesUsage": "warn"
+}
+```
+
+Example `settings.json` (workspace `.vscode/settings.json`, optional fallback):
 
 ```json
 {
   "mirandaStaticHelper.rules": {
     "miranda.definition.unused": "off",
     "miranda.definition.incomplete": "error",
+    "miranda.definition.duplicate": "error",
+    "miranda.type.duplicate": "error",
+    "miranda.definition.guardNotExhaustive": "error",
     "miranda.style.parenthesesUsage": "warn"
   }
 }
@@ -218,4 +234,27 @@ Notes:
 - Values accepted: `"off"`, `"warn"` (or `"warning"`), `"error"`.
 - If a rule is not present in the map, the extension will use the analyzer's default severity for that issue.
 
-This configuration is read from the standard VS Code configuration API and supports per-user or per-workspace settings.
+Behavior summary:
+
+| Rule value | Effect |
+| --- | --- |
+| `off` | Hides the diagnostic. |
+| `warn` / `warning` | Shows the diagnostic as a warning. |
+| `error` | Shows the diagnostic as an error. |
+| Not defined | Keeps the analyzer's default severity. |
+
+Duplicate clauses are also configurable. For example, the sample file intentionally contains:
+
+- `duplicate a = a + 1`
+- `duplicate a = a + 2`
+
+That is why the extension shows the diagnostic `Function 'duplicate' has multiple clauses but no 'otherwise' or catch-all branch; patterns may be non-exhaustive.`
+This is expected from the current sample and can be controlled with `miranda.definition.guardNotExhaustive`. The other duplicate-related rules are `miranda.definition.duplicate` and `miranda.type.duplicate` for repeated declarations.
+
+The sample root file in this repo is [`.mirandarc.json`](.mirandarc.json), so pressing `F5` should pick it up automatically without touching `.m` files.
+
+Settings UI
+- The extension still contributes a configuration schema so `mirandaStaticHelper.rules` appears in VS Code Settings (Preferences → Settings). You can edit rules there with autocompletion and validation.
+
+Test configuration file
+- A sample rules file is also provided at [src/test/miranda.rules.json](src/test/miranda.rules.json) if you want a test-only copy.

@@ -1,0 +1,10 @@
+{
+  "mirandaStaticHelper.rules": {
+    "miranda.definition.unused": "off",
+    "miranda.definition.incomplete": "error",
+    "miranda.definition.duplicate": "error",
+    "miranda.type.duplicate": "error",
+    "miranda.definition.guardNotExhaustive": "error",
+    "miranda.style.parenthesesUsage": "warn"
+  }
+}
