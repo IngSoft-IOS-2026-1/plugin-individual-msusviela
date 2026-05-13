@@ -1,1 +1,1 @@
-export type { AnalysisSeverity, AnalysisIssue } from "./AnalysisIssue";
+export type { AnalysisSeverity, AnalysisIssue } from "./analysisIssue";
