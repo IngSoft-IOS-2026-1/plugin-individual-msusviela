@@ -2,6 +2,11 @@ import * as vscode from "vscode";
 import { analyzeDocument } from "./analyzer";
 import { MirandaCodeActionProvider } from "./providers/codeActionProvider";
 import { readMirandaRulesFromWorkspace } from "./config/mirandaRulesConfig";
+import { createAutoFixEdit } from "./providers/autoFixProvider";
+import {
+  createFormatEdit,
+  MirandaFormattingProvider,
+} from "./providers/formatterProvider";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("miranda");
@@ -86,10 +91,97 @@ export function activate(context: vscode.ExtensionContext): void {
         );
       },
     ),
+    vscode.commands.registerCommand(
+      "mirandaStaticHelper.autoFixCurrentFile",
+      async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showInformationMessage("No active file to auto fix.");
+          return;
+        }
+
+        const { document } = editor;
+        if (document.languageId !== "miranda") {
+          vscode.window.showInformationMessage(
+            "The active file is not a Miranda document.",
+          );
+          return;
+        }
+
+        const currentDiagnostics = analyzeDocument(document, getRules());
+        const edit = createAutoFixEdit(document, currentDiagnostics);
+        if (!edit) {
+          vscode.window.showInformationMessage(
+            "No auto-fixable Miranda diagnostics found.",
+          );
+          return;
+        }
+
+        await vscode.workspace.applyEdit(edit);
+        const updatedDiagnostics = analyzeDocument(document, getRules());
+        diagnostics.set(document.uri, updatedDiagnostics);
+        vscode.window.showInformationMessage(
+          "Miranda auto fix applied to the current file.",
+        );
+      },
+    ),
+    vscode.commands.registerCommand(
+      "mirandaStaticHelper.fixAllAutoFixableIssues",
+      async () => {
+        await vscode.commands.executeCommand(
+          "mirandaStaticHelper.autoFixCurrentFile",
+        );
+      },
+    ),
+    vscode.commands.registerCommand(
+      "mirandaStaticHelper.formatCurrentFile",
+      async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showInformationMessage("No active file to format.");
+          return;
+        }
+
+        const { document } = editor;
+        if (document.languageId !== "miranda") {
+          vscode.window.showInformationMessage(
+            "The active file is not a Miranda document.",
+          );
+          return;
+        }
+
+        const formatterEnabled = vscode.workspace
+          .getConfiguration("miranda")
+          .get<boolean>("formatter.enabled", true);
+        if (!formatterEnabled) {
+          vscode.window.showInformationMessage("Miranda formatter is disabled.");
+          return;
+        }
+
+        const edit = createFormatEdit(document);
+        if (!edit) {
+          vscode.window.showInformationMessage(
+            "Miranda document is already formatted.",
+          );
+          return;
+        }
+
+        await editor.edit((editBuilder) => {
+          editBuilder.replace(edit.range, edit.newText);
+        });
+      },
+    ),
     // register code action provider
     vscode.languages.registerCodeActionsProvider(
       { language: "miranda" },
       new MirandaCodeActionProvider(),
+      {
+        providedCodeActionKinds: MirandaCodeActionProvider.providedCodeActionKinds,
+      },
+    ),
+    vscode.languages.registerDocumentFormattingEditProvider(
+      { language: "miranda" },
+      new MirandaFormattingProvider(),
     ),
     vscode.commands.registerCommand(
       "mirandaStaticHelper.insertPlaceholderRHS",

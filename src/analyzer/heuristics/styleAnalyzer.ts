@@ -18,6 +18,28 @@ function makeIssue(
   };
 }
 
+function findDefinitionEqualsIndex(line: string): number {
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] !== "=") {
+      continue;
+    }
+
+    const before = line[index - 1] ?? "";
+    const after = line[index + 1] ?? "";
+    if (before === "=" || before === "<" || before === ">" || before === "~") {
+      continue;
+    }
+
+    if (after === "=") {
+      continue;
+    }
+
+    return index;
+  }
+
+  return -1;
+}
+
 export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
   const issues: AnalysisIssue[] = [];
 
@@ -26,9 +48,47 @@ export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    const trimmedEnd = line.trimEnd();
+    if (trimmedEnd.length !== line.length) {
+      issues.push(
+        makeIssue(
+          i,
+          trimmedEnd.length,
+          "Line has trailing whitespace.",
+          "miranda.style.trailingWhitespace",
+          line.length,
+        ),
+      );
+    }
+
     if (!line.trim() || line.trim().startsWith("||")) continue;
 
-    const eqIndex = line.indexOf("=");
+    const guardWithoutSpace = line.match(/^(\s*)\|(?=\S)/);
+    if (guardWithoutSpace) {
+      issues.push(
+        makeIssue(
+          i,
+          guardWithoutSpace[1].length,
+          "Prefer a single space after guard '|'.",
+          "miranda.style.guardSpacing",
+          line.length,
+        ),
+      );
+    }
+
+    if (/^\s*\|\s+True\b/.test(line)) {
+      issues.push(
+        makeIssue(
+          i,
+          line.indexOf("True"),
+          "Use 'otherwise' for catch-all guard branches.",
+          "miranda.style.guardOtherwise",
+          line.length,
+        ),
+      );
+    }
+
+    const eqIndex = findDefinitionEqualsIndex(line);
     if (eqIndex >= 0) {
       const before = line[eqIndex - 1] ?? "";
       const after = line[eqIndex + 1] ?? "";

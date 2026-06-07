@@ -35,7 +35,8 @@
           "miranda"
         ],
         "extensions": [
-          ".m"
+          ".m",
+          ".mir"
         ],
         "configuration": "./language-configuration.json"
       }
@@ -51,6 +52,26 @@
       {
         "command": "mirandaStaticHelper.analyzeCurrentFile",
         "title": "Miranda: Analyze Current File"
+      },
+      {
+        "command": "mirandaStaticHelper.autoFixCurrentFile",
+        "title": "Miranda: Auto Fix Current File"
+      },
+      {
+        "command": "mirandaStaticHelper.formatCurrentFile",
+        "title": "Miranda: Format Document"
+      },
+      {
+        "command": "mirandaStaticHelper.fixAllAutoFixableIssues",
+        "title": "Miranda: Fix All Auto-Fixable Issues"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mirandaStaticHelper.autoFixCurrentFile",
+        "key": "shift+alt+x",
+        "mac": "shift+alt+x",
+        "when": "editorTextFocus && editorLangId == miranda"
       }
     ],
     "configuration": {
@@ -64,6 +85,11 @@
             "enum": ["off", "warn", "warning", "error"]
           },
           "default": {}
+        },
+        "miranda.formatter.enabled": {
+          "type": "boolean",
+          "description": "Enable Miranda document formatting.",
+          "default": true
         }
       }
     }
