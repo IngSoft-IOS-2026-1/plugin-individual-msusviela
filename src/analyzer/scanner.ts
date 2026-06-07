@@ -119,7 +119,7 @@ export function tokenizeVisibleText(
 ): Array<{ value: string; start: number; end: number }> {
   const tokens: Array<{ value: string; start: number; end: number }> = [];
   const tokenPattern =
-    /[A-Za-z_][A-Za-z0-9_']*|\d+(?:\.\d+)?|->|\+\+|~=|<=|>=|::|[:=()\[\]{}+\-*/<>]/g;
+    /[A-Za-z_][A-Za-z0-9_']*|\d+(?:\.\d+)?|->|<-|\+\+|--|\.\.|==|~=|<=|>=|::|\\\/|[:=()\[\]{}+\-*/<>#!&|;,]/g;
   let match: RegExpExecArray | null;
 
   while ((match = tokenPattern.exec(line)) !== null) {

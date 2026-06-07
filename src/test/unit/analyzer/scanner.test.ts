@@ -74,6 +74,28 @@ describe("Scanner", () => {
       expect(values).toContain("a");
     });
 
+    it("should tokenize documented Miranda operators", () => {
+      const tokens = tokenizeVisibleText(
+        "xs -- ys ++ [n*n | n <- [1..100]; n ~= 0] #days!0 \\/ ok & more",
+      );
+      const values = tokens.map((t) => t.value);
+
+      expect(values).toEqual(
+        expect.arrayContaining([
+          "--",
+          "++",
+          "|",
+          "<-",
+          "..",
+          "~=",
+          "#",
+          "!",
+          "\\/",
+          "&",
+        ]),
+      );
+    });
+
     it("should track token positions", () => {
       const tokens = tokenizeVisibleText("f x");
       expect(tokens[0].start).toBe(0);

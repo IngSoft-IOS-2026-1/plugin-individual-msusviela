@@ -63,7 +63,11 @@
       "patterns": [
         {
           "name": "keyword.control.miranda",
-          "match": "\\b(?:if|otherwise|where)\\b"
+          "match": "\\b(?:case|else|if|in|let|of|otherwise|then|where)\\b"
+        },
+        {
+          "name": "keyword.declaration.miranda",
+          "match": "\\b(?:abstype|type)\\b"
         }
       ]
     },
@@ -107,7 +111,7 @@
       "patterns": [
         {
           "name": "keyword.operator.miranda",
-          "match": "->|\\+\\+|~=|<=|>=|:|=|\\b(?:div|mod)\\b|[+\\-*/<>]"
+          "match": "->|<-|\\+\\+|--|\\.\\.|\\\\/|~=|==|<=|>=|:|=|#|!|&|\\b(?:div|mod)\\b|[+\\-*/<>]"
         }
       ]
     },

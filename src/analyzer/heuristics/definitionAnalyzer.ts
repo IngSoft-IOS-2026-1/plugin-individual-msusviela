@@ -12,6 +12,7 @@ interface DefinitionRecord {
   readonly character: number;
   readonly kind: "value" | "type";
   readonly arity: number;
+  readonly patternKey: string;
 }
 
 interface TokenUsage {
@@ -21,7 +22,19 @@ interface TokenUsage {
   readonly endCharacter: number;
 }
 
-const keywords = new Set(["if", "otherwise", "where"]);
+const keywords = new Set([
+  "abstype",
+  "case",
+  "else",
+  "if",
+  "in",
+  "let",
+  "of",
+  "otherwise",
+  "then",
+  "type",
+  "where",
+]);
 const knownValueArities = new Map<string, number>([
   ["map", 2],
   ["filter", 2],
@@ -51,8 +64,8 @@ const knownValueArities = new Map<string, number>([
   ["tail", 1],
   ["null", 1],
   ["not", 1],
-  ["and", 2],
-  ["or", 2],
+  ["and", 1],
+  ["or", 1],
   ["+", 2],
   ["-", 2],
   ["*", 2],
@@ -81,6 +94,7 @@ const knownValueArities = new Map<string, number>([
   ["remove", 2],
   ["indent", 2],
   ["outdent", 1],
+  ["sqrt", 1],
   ["True", 0],
   ["False", 0],
 ]);
@@ -100,6 +114,10 @@ function parseDefinitionCandidate(line: string): {
   operatorIndex: number;
   operatorLength: number;
 } | null {
+  if (line.trimStart().startsWith("|")) {
+    return null;
+  }
+
   const typeIndex = line.indexOf("::");
   const valueIndex = line.indexOf("=");
 
@@ -135,6 +153,32 @@ function parseDefinitionCandidate(line: string): {
     args: parts.slice(1),
     operatorIndex: valueIndex,
     operatorLength: 1,
+  };
+}
+
+function parseGuardHeaderCandidate(line: string): {
+  name: string;
+  args: string[];
+  character: number;
+} | null {
+  if (line.includes("=") || line.includes("::")) {
+    return null;
+  }
+
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("||") || trimmed.startsWith("|")) {
+    return null;
+  }
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length < 2 || !isLowercaseValueName(parts[0])) {
+    return null;
+  }
+
+  return {
+    name: parts[0],
+    args: parts.slice(1),
+    character: line.indexOf(parts[0]),
   };
 }
 
@@ -221,6 +265,96 @@ function hasUnbalancedBrackets(text: string): boolean {
   }
 
   return stack.length > 0;
+}
+
+function isGuardHeaderLine(
+  maskedLines: readonly string[],
+  lineIndex: number,
+): boolean {
+  if (!parseGuardHeaderCandidate(maskedLines[lineIndex] ?? "")) {
+    return false;
+  }
+
+  for (let index = lineIndex + 1; index < maskedLines.length; index += 1) {
+    const trimmed = (maskedLines[index] ?? "").trim();
+    if (!trimmed || trimmed.startsWith("||")) {
+      continue;
+    }
+
+    return trimmed.startsWith("|");
+  }
+
+  return false;
+}
+
+function extractPatternVariables(pattern: string): string[] {
+  const variables: string[] = [];
+  for (const token of tokenizeVisibleText(pattern)) {
+    if (
+      isLowercaseValueName(token.value) &&
+      !keywords.has(token.value) &&
+      !preludeSymbols.has(token.value)
+    ) {
+      variables.push(token.value);
+    }
+  }
+
+  return variables;
+}
+
+function extractPatternVariablesFromArgs(args: readonly string[]): string[] {
+  return args.flatMap(extractPatternVariables);
+}
+
+function extractLocalBindingsFromExpression(expression: string): string[] {
+  const localBindings: string[] = [];
+  const tokens = tokenizeVisibleText(expression);
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (
+      token.value === "<-" &&
+      index > 0 &&
+      isLowercaseValueName(tokens[index - 1].value)
+    ) {
+      localBindings.push(tokens[index - 1].value);
+      continue;
+    }
+
+    if (
+      token.value === "let" &&
+      index + 2 < tokens.length &&
+      isLowercaseValueName(tokens[index + 1].value) &&
+      tokens[index + 2].value === "="
+    ) {
+      localBindings.push(tokens[index + 1].value);
+    }
+  }
+
+  return localBindings;
+}
+
+function hasExplicitTypeDeclaration(
+  definitions: ReadonlyMap<string, DefinitionRecord[]>,
+  name: string,
+): boolean {
+  return (definitions.get(name) ?? []).some((record) => record.kind === "type");
+}
+
+function isCatchAllPatternArg(arg: string): boolean {
+  const trimmed = arg.trim();
+  return (
+    trimmed === "_" ||
+    /^[a-z_][A-Za-z0-9_']*$/.test(trimmed) ||
+    /^\([a-z_][A-Za-z0-9_']*:[a-z_][A-Za-z0-9_']*\)$/.test(trimmed)
+  );
+}
+
+function hasCatchAllClause(records: readonly DefinitionRecord[]): boolean {
+  return records.some((record) => {
+    const args = record.patternKey.split(" ").filter(Boolean);
+    return args.some(isCatchAllPatternArg);
+  });
 }
 
 function shouldConsiderAsSymbol(name: string): boolean {
@@ -393,6 +527,13 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
     if (candidate) {
       declaredSymbols.add(candidate.name);
     }
+
+    if (isGuardHeaderLine(maskedLines, lineIndex)) {
+      const guardHeader = parseGuardHeaderCandidate(maskedLine);
+      if (guardHeader) {
+        declaredSymbols.add(guardHeader.name);
+      }
+    }
   }
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
@@ -407,11 +548,35 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
     const candidate = parseDefinitionCandidate(maskedLine);
     const lineUsages = extractUsagesFromLine(maskedLine);
 
+    if (isGuardHeaderLine(maskedLines, lineIndex)) {
+      const guardHeader = parseGuardHeaderCandidate(maskedLine);
+      if (guardHeader) {
+        const seenDefinitions = definitions.get(guardHeader.name) ?? [];
+        definitions.set(guardHeader.name, [
+          ...seenDefinitions,
+          {
+            name: guardHeader.name,
+            line: lineIndex,
+            character: guardHeader.character,
+            kind: "value",
+            arity: guardHeader.args.length,
+            patternKey: guardHeader.args.join(" "),
+          },
+        ]);
+        declaredSymbols.add(guardHeader.name);
+        for (const arg of extractPatternVariablesFromArgs(guardHeader.args)) {
+          declaredSymbols.add(arg);
+        }
+      }
+      continue;
+    }
+
     if (candidate) {
       const linePrefix = maskedLine.slice(0, candidate.operatorIndex).trim();
       const lineParts = linePrefix.split(/\s+/).filter(Boolean);
       const definitionName = lineParts[0];
       const args = candidate.kind === "value" ? lineParts.slice(1) : [];
+      const patternVariables = extractPatternVariablesFromArgs(args);
 
       if (candidate.kind === "value") {
         const rhsRawText = rawLine.slice(
@@ -453,11 +618,18 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
         }
 
         const seenDefinitions = definitions.get(definitionName) ?? [];
-        if (seenDefinitions.some((definition) => definition.kind === "value")) {
+        const patternKey = args.join(" ");
+        if (
+          seenDefinitions.some(
+            (definition) =>
+              definition.kind === "value" &&
+              definition.patternKey === patternKey,
+          )
+        ) {
           issues.push(
             makeLineIssue(
               lineIndex,
-              `Function '${definitionName}' is defined more than once (multiple clauses).`,
+              `Function '${definitionName}' is defined more than once with the same pattern clause.`,
               "warning",
               "miranda.definition.duplicate",
               maskedLine.length,
@@ -473,17 +645,22 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
             character: maskedLine.indexOf(definitionName),
             kind: "value",
             arity: args.length,
+            patternKey,
           },
         ]);
         declaredSymbols.add(definitionName);
 
-        for (const arg of args) {
+        for (const arg of patternVariables) {
           declaredSymbols.add(arg);
         }
 
         const rhsText = maskedLine.slice(
           candidate.operatorIndex + candidate.operatorLength,
         );
+        const localSymbols = new Set([
+          ...patternVariables,
+          ...extractLocalBindingsFromExpression(rhsText),
+        ]);
         for (const token of tokenizeVisibleText(rhsText)) {
           if (!shouldConsiderAsSymbol(token.value)) {
             continue;
@@ -491,7 +668,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
 
           if (
             !declaredSymbols.has(token.value) &&
-            !args.includes(token.value)
+            !localSymbols.has(token.value)
           ) {
             issues.push(
               makeIssue(
@@ -512,7 +689,11 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
           recordUsage(usageCounts, token.value);
         }
 
-        if (preludeSymbols.has(definitionName)) {
+        if (
+          preludeSymbols.has(definitionName) &&
+          !hasExplicitTypeDeclaration(definitions, definitionName) &&
+          indentationWidth(rawLine) === 0
+        ) {
           issues.push(
             makeLineIssue(
               lineIndex,
@@ -585,6 +766,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
             character: maskedLine.indexOf(definitionName),
             kind: "type",
             arity: 0,
+            patternKey: "",
           },
         ]);
         declaredSymbols.add(definitionName);
@@ -618,9 +800,14 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
       continue;
     }
 
-    if (!usageCounts.has(name)) {
+    if (!usageCounts.has(name) && !hasExplicitTypeDeclaration(definitions, name)) {
       const firstRecord = records.find((record) => record.kind === "value");
       if (firstRecord) {
+        const line = lines[firstRecord.line] ?? "";
+        if (indentationWidth(line) > 0) {
+          continue;
+        }
+
         const lineHasSyntaxIssue = issues.some(
           (issue) =>
             issue.startLine === firstRecord.line &&
@@ -652,7 +839,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
         return /otherwise\b/.test(text) || /\|/.test(text);
       });
 
-      if (!hasOtherwise) {
+      if (!hasOtherwise && !hasCatchAllClause(valueRecords)) {
         const first = valueRecords[0];
         issues.push(
           makeLineIssue(

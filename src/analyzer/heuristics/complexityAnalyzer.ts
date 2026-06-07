@@ -22,6 +22,19 @@ function makeIssue(
 export function analyzeComplexity(lines: readonly string[]): AnalysisIssue[] {
   const issues: AnalysisIssue[] = [];
   const masked = maskMirandaDocument(lines);
+  const typedSymbols = new Set<string>();
+
+  for (const line of masked) {
+    const typeIndex = line.indexOf("::");
+    if (typeIndex < 0) {
+      continue;
+    }
+
+    const name = line.slice(0, typeIndex).trim().split(/\s+/)[0];
+    if (/^[a-z_][A-Za-z0-9_']*$/.test(name)) {
+      typedSymbols.add(name);
+    }
+  }
 
   for (let i = 0; i < masked.length; i += 1) {
     const line = masked[i];
@@ -44,7 +57,7 @@ export function analyzeComplexity(lines: readonly string[]): AnalysisIssue[] {
     // naive recursion detection: if an identifier is used equal to a function name on same line
     if (tokens.length > 0) {
       const name = tokens[0];
-      if (/^[a-z_][A-Za-z0-9_']*$/.test(name)) {
+      if (/^[a-z_][A-Za-z0-9_']*$/.test(name) && !typedSymbols.has(name)) {
         const count = tokens.filter((t) => t === name).length;
         if (count >= 2) {
           issues.push(

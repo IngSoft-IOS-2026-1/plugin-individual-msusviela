@@ -136,8 +136,66 @@ describe("Definition Analyzer", () => {
   });
 
   it("warns about non-exhaustive guards", () => {
-    const result = analyzeDefinitions(["f 0 = 1", "f n = n"]);
+    const result = analyzeDefinitions(["f 0 = 1", "f 1 = 1"]);
     expect(result.some((r) => r.code === "miranda.definition.guardNotExhaustive")).toBe(true);
+  });
+
+  it("should accept typed top-level Miranda definitions as a clean file", () => {
+    const result = analyzeDefinitions([
+      "id :: * -> *",
+      "id x = x",
+      "",
+      "const :: * -> * -> *",
+      "const x y = x",
+      "",
+      "add :: num -> num -> num",
+      "add x y = x + y",
+      "",
+      "max2 :: num -> num -> num",
+      "max2 x y = if x >= y then x else y",
+      "",
+      "fact :: num -> num",
+      "fact 0 = 1",
+      "fact n = n * fact (n - 1)",
+      "",
+      "fib :: num -> num",
+      "fib 0 = 0",
+      "fib 1 = 1",
+      "fib n = fib (n - 1) + fib (n - 2)",
+      "",
+      "sumList :: [num] -> num",
+      "sumList [] = 0",
+      "sumList (x:xs) = x + sumList xs",
+      "",
+      "lengthList :: [*] -> num",
+      "lengthList [] = 0",
+      "lengthList (x:xs) = 1 + lengthList xs",
+      "",
+      "squares :: [num] -> [num]",
+      "squares xs = [x * x | x <- xs]",
+      "",
+      "positiveSquares :: [num] -> [num]",
+      "positiveSquares xs = [x * x | x <- xs; x > 0]",
+      "",
+      "safeHead :: [*] -> *",
+      "safeHead (x:xs) = x",
+      "",
+      "classify :: num -> string",
+      "classify n",
+      "    | n < 0 = \"negative\"",
+      "    | n == 0 = \"zero\"",
+      "    | otherwise = \"positive\"",
+      "",
+      "areaCircle :: num -> num",
+      "areaCircle r = pi * r * r",
+      "    where",
+      "    pi = 3.14159",
+      "",
+      "compose :: (* -> *) -> (* -> *) -> * -> *",
+      "compose f g x = f (g x)",
+    ]);
+
+    expect(result).toHaveLength(0);
   });
 
   it("should not flag guard exhaustiveness for zero-arity local bindings", () => {
@@ -172,6 +230,28 @@ describe("Definition Analyzer", () => {
   it("should allow prelude functions without warnings", () => {
     const result = analyzeDefinitions(["f x = map (+1) x"]);
     expect(result.filter((r) => r.code === "miranda.definition.undefined")).toHaveLength(0);
+  });
+
+  it("should allow Miranda standard environment symbols without warnings", () => {
+    const result = analyzeDefinitions([
+      "root x = sqrt x",
+      "allTrue xs = and xs",
+      "angle x = sin x + cos x + arctan x",
+    ]);
+
+    expect(result.filter((r) => r.code === "miranda.definition.undefined")).toHaveLength(0);
+    expect(result.filter((r) => r.code === "miranda.definition.callArity")).toHaveLength(0);
+  });
+
+  it("should not flag documented Miranda syntax words as undefined", () => {
+    const result = analyzeDefinitions([
+      "choice x = case x of True -> 1",
+      "local x = let y = x in y",
+    ]);
+
+    expect(
+      result.filter((r) => r.code === "miranda.definition.undefined"),
+    ).toHaveLength(0);
   });
 
   it("should track argument definitions in scope", () => {
@@ -213,6 +293,11 @@ describe("Style Analyzer", () => {
   it("warns about missing spaces around =", () => {
     const result = analyzeStyle(["f=1"]);
     expect(result.some((r) => r.code === "miranda.style.equalsSpacing")).toBe(true);
+  });
+
+  it("should not treat equality comparisons as definition spacing issues", () => {
+    const result = analyzeStyle(["    | n == 0 = \"zero\""]);
+    expect(result.filter((r) => r.code === "miranda.style.equalsSpacing")).toHaveLength(0);
   });
 
   it("warns about comma spacing", () => {
@@ -259,6 +344,16 @@ describe("Complexity Analyzer", () => {
     const line = "f x = f x + 1";
     const result = analyzeComplexity([line]);
     expect(result.some((r) => r.code === "miranda.complexity.recursive")).toBe(true);
+  });
+
+  it("should not flag typed recursive definitions as complexity warnings", () => {
+    const result = analyzeComplexity([
+      "fact :: num -> num",
+      "fact 0 = 1",
+      "fact n = n * fact (n - 1)",
+    ]);
+
+    expect(result.filter((r) => r.code === "miranda.complexity.recursive")).toHaveLength(0);
   });
 
   it("should not flag false recursion", () => {
