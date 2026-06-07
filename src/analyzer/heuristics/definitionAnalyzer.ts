@@ -754,6 +754,7 @@ export function analyzeDefinitions(lines: readonly string[]): AnalysisIssue[] {
               `Type declaration '${definitionName}' is duplicated.`,
               "warning",
               "miranda.type.duplicate",
+              maskedLine.indexOf(definitionName) + definitionName.length,
             ),
           );
         }

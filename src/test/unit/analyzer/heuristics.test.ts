@@ -227,6 +227,17 @@ describe("Definition Analyzer", () => {
     expect(result.some((r) => r.code === "miranda.type.duplicate")).toBe(true);
   });
 
+  it("should underline the full duplicate type declaration name", () => {
+    const result = analyzeDefinitions([
+      "typedAgain :: num -> num",
+      "typedAgain :: num -> num",
+    ]);
+    const issue = result.find((r) => r.code === "miranda.type.duplicate");
+
+    expect(issue).toBeDefined();
+    expect(issue?.endCharacter).toBe("typedAgain".length);
+  });
+
   it("should allow prelude functions without warnings", () => {
     const result = analyzeDefinitions(["f x = map (+1) x"]);
     expect(result.filter((r) => r.code === "miranda.definition.undefined")).toHaveLength(0);
@@ -293,6 +304,28 @@ describe("Style Analyzer", () => {
   it("warns about missing spaces around =", () => {
     const result = analyzeStyle(["f=1"]);
     expect(result.some((r) => r.code === "miranda.style.equalsSpacing")).toBe(true);
+  });
+
+  it("warns when a line exceeds the maximum length", () => {
+    const line =
+      "veryLongFunctionNameWithManyArguments a b c d e f g h = a + b + c + d + e + f + g + h";
+    const result = analyzeStyle([line]);
+    const issue = result.find((r) => r.code === "miranda.style.lineLength");
+
+    expect(issue).toBeDefined();
+    expect(issue?.startCharacter).toBe(80);
+    expect(issue?.endCharacter).toBe(line.length);
+  });
+
+  it("warns when an if expression has no else branch", () => {
+    const result = analyzeStyle(["incomplete n = if n > 0 then n"]);
+    const issue = result.find(
+      (r) => r.code === "miranda.style.incompleteConditional",
+    );
+
+    expect(issue).toBeDefined();
+    expect(issue?.startCharacter).toBe(0);
+    expect(issue?.endCharacter).toBe("incomplete n = if n > 0 then n".length);
   });
 
   it("should not treat equality comparisons as definition spacing issues", () => {

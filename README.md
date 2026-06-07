@@ -1,10 +1,10 @@
 # Miranda Static Helper
 
-Miranda Static Helper is a Visual Studio Code extension for Miranda files (`.m`). It adds syntax highlighting and lightweight static analysis aimed at catching common issues early while you edit.
+Miranda Static Helper is a Visual Studio Code extension for Miranda files (`.m`, `.mir`). It adds syntax highlighting and lightweight static analysis aimed at catching common issues early while you edit.
 
 ## Features
 
-- Syntax highlighting based for Miranda files (`.m`)
+- Syntax highlighting based for Miranda files (`.m`, `.mir`)
 - Editor-aware diagnostics for brackets, indentation, definitions, style, and complexity heuristics.
 - Workspace-aware rule configuration so you can tune which warnings are shown.
 - A command to re-run analysis on the current file.
@@ -24,7 +24,7 @@ Open any Miranda file in VS Code and the extension will analyze it automatically
 ## Requirements
 
 - Visual Studio Code `1.86.0` or newer.
-- Miranda source files with the `.m` extension.
+- Miranda source files with the `.m` or `.mir` extension.
 
 ## Rules
 
@@ -54,6 +54,14 @@ Example:
 | `warn` / `warning` | Shows the diagnostic as a warning. |
 | `error` | Shows the diagnostic as an error. |
 | Not defined | Keeps the analyzer's default severity. |
+
+The formatter can be disabled with:
+
+```json
+{
+  "miranda.formatter.enabled": false
+}
+```
 
 ## Rules Reference
 
@@ -88,6 +96,11 @@ Example:
 - `miranda.style.equalsSpacing`: Missing or inconsistent whitespace around `=` in definitions.
 - `miranda.style.commaSpacing`: Missing or inconsistent whitespace around `,` in lists/tuples.
 - `miranda.style.parenthesesUsage`: Unnecessary or unbalanced use of parentheses.
+- `miranda.style.trailingWhitespace`: Line ends with unnecessary whitespace.
+- `miranda.style.guardSpacing`: Guard pipe is missing a following space.
+- `miranda.style.guardOtherwise`: Catch-all guard uses `True` instead of `otherwise`.
+- `miranda.style.lineLength`: Line exceeds 80 characters.
+- `miranda.style.incompleteConditional`: Conditional expression has `if` and `then` but no `else`.
 
 ### Complexity
 

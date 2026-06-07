@@ -1,4 +1,7 @@
 import type { AnalysisIssue } from "../types";
+import { maskMirandaDocument } from "../scanner";
+
+const maxLineLength = 80;
 
 function makeIssue(
   line: number,
@@ -42,12 +45,14 @@ function findDefinitionEqualsIndex(line: string): number {
 
 export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
   const issues: AnalysisIssue[] = [];
+  const maskedLines = maskMirandaDocument(lines);
 
   // Style analyzer focuses on spacing and simple patterns; continuation/
   // indentation heuristics live in the definition analyzer.
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    const maskedLine = maskedLines[i] ?? "";
     const trimmedEnd = line.trimEnd();
     if (trimmedEnd.length !== line.length) {
       issues.push(
@@ -61,9 +66,41 @@ export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
       );
     }
 
-    if (!line.trim() || line.trim().startsWith("||")) continue;
+    if (!maskedLine.trim()) continue;
 
-    const guardWithoutSpace = line.match(/^(\s*)\|(?=\S)/);
+    if (line.length > maxLineLength) {
+      issues.push(
+        makeIssue(
+          i,
+          maxLineLength,
+          `Line exceeds ${maxLineLength} characters.`,
+          "miranda.style.lineLength",
+          line.length,
+        ),
+      );
+    }
+
+    const visibleTokens = maskedLine
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (
+      visibleTokens.includes("if") &&
+      visibleTokens.includes("then") &&
+      !visibleTokens.includes("else")
+    ) {
+      issues.push(
+        makeIssue(
+          i,
+          0,
+          "Conditional expression has 'if' and 'then' but no 'else'.",
+          "miranda.style.incompleteConditional",
+          line.length,
+        ),
+      );
+    }
+
+    const guardWithoutSpace = maskedLine.match(/^(\s*)\|(?=\S)/);
     if (guardWithoutSpace) {
       issues.push(
         makeIssue(
@@ -76,7 +113,7 @@ export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
       );
     }
 
-    if (/^\s*\|\s+True\b/.test(line)) {
+    if (/^\s*\|\s+True\b/.test(maskedLine)) {
       issues.push(
         makeIssue(
           i,
@@ -88,7 +125,7 @@ export function analyzeStyle(lines: readonly string[]): AnalysisIssue[] {
       );
     }
 
-    const eqIndex = findDefinitionEqualsIndex(line);
+    const eqIndex = findDefinitionEqualsIndex(maskedLine);
     if (eqIndex >= 0) {
       const before = line[eqIndex - 1] ?? "";
       const after = line[eqIndex + 1] ?? "";

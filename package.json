@@ -2,7 +2,7 @@
   "name": "miranda-static-helper",
   "displayName": "Miranda Static Helper",
   "description": "Basic language support and lightweight static analysis for Miranda in VS Code.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "msusviela",
   "icon": "assets/logo.png",
   "license": "MIT",
